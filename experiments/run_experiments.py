@@ -47,26 +47,30 @@ def experiment_c3(n_values, S_values):
     return results
 
 
-def experiment_d(n, optimal_S):
+def experiment_d(n, optimal_S, repeats=3):
     base_data = generate_data(n, X, seed=SEED)
 
-    arr1 = base_data.copy()
-    counter.reset_counter()
-    start = time.process_time()
-    hybrid_sort(arr1, optimal_S)
-    hybrid_time = time.process_time() - start
+    hybrid_times = []
+    for _ in range(repeats):
+        arr1 = base_data.copy()
+        counter.reset_counter()
+        start = time.process_time()
+        hybrid_sort(arr1, optimal_S)
+        hybrid_times.append(time.process_time() - start)
     hybrid_comparisons = counter.comparisons
 
-    arr2 = base_data.copy()
-    counter.reset_counter()
-    start = time.process_time()
-    merge_sort(arr2)
-    merge_time = time.process_time() - start
+    merge_times = []
+    for _ in range(repeats):
+        arr2 = base_data.copy()
+        counter.reset_counter()
+        start = time.process_time()
+        merge_sort(arr2)
+        merge_times.append(time.process_time() - start)
     merge_comparisons = counter.comparisons
 
     return {
-        "hybrid": (hybrid_comparisons, hybrid_time),
-        "merge": (merge_comparisons, merge_time),
+        "hybrid": (hybrid_comparisons, min(hybrid_times)),
+        "merge": (merge_comparisons, min(merge_times)),
     }
 
 
@@ -110,8 +114,8 @@ if __name__ == "__main__":
     save_csv("c3_optimal_S_per_n.csv", ["n", "best_S", "min_comparisons"], c3_results)
 
     print("Running CPU-time sweep at n=10,000,000 to find optimal S for (d)...")
-    D_S_CANDIDATES = [1, 5, 10, 20, 50, 100]
-    time_sweep_results = experiment_time_sweep(n=10_000_000, S_values=D_S_CANDIDATES, repeats=1)
+    D_S_CANDIDATES = [1, 3, 5, 7, 10, 13, 16, 20, 50]
+    time_sweep_results = experiment_time_sweep(n=10_000_000, S_values=D_S_CANDIDATES, repeats=3)
     save_csv("time_sweep_10M.csv", ["S", "min_cpu_time_seconds"], time_sweep_results)
 
     optimal_S, optimal_time = min(time_sweep_results, key=lambda r: r[1])
