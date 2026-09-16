@@ -143,7 +143,7 @@ if __name__ == "__main__":
         save_csv(f"c2_fixed_n_varying_S_{label}.csv", ["S", "comparisons"], c2_results)
 
         print("Running (c)-iii: optimal S per n...")
-        c3_n_values = [10_000, 100_000, 1_000_000]
+        c3_n_values = [10_000, 100_000, 1_000_000, 10_000_000]
         c3_results = experiment_c3(n_values=c3_n_values, S_values=S_VALUES)
         save_csv(f"c3_optimal_S_per_n_{label}.csv", ["n", "best_S", "min_comparisons"], c3_results)
 
