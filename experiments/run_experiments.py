@@ -96,18 +96,47 @@ def experiment_d(n, optimal_S, repeats=3):
     }
 
 
-def experiment_time_sweep(n, S_values, repeats=1):
+def experiment_balanced_S(n, S_values, repeats=3):
+    """Measure both comparisons and CPU time for each candidate S at a
+    single common n, so we can pick one S that balances both metrics
+    instead of picking a comparison-optimal S and a time-optimal S
+    separately and only using one of them for part (d)."""
     base_data = generate_data(n, X, seed=SEED)
     results = []
     for S in S_values:
         times = []
+        comparisons = None
         for _ in range(repeats):
             arr = base_data.copy()
+            counter.reset_counter()
             start = time.process_time()
             hybrid_sort(arr, S)
             times.append(time.process_time() - start)
-        results.append((S, min(times)))
+            comparisons = counter.comparisons  # deterministic given fixed data/S
+        results.append((S, comparisons, min(times)))
     return results
+
+
+def pick_balanced_S(results):
+    """results: list of (S, comparisons, time_seconds). Scores each S by
+    its ratio to the best comparisons and the best time in the set, then
+    picks the S minimizing the sum of those two ratios -- i.e. the S that
+    is jointly closest to optimal on both metrics. Also reports each ratio
+    as a +/-% delta from that best value, for report tables."""
+    min_comparisons = min(r[1] for r in results)
+    min_time = min(r[2] for r in results)
+    scored = []
+    for S, comparisons, t in results:
+        comparisons_ratio = comparisons / min_comparisons
+        time_ratio = t / min_time
+        comparisons_pct = (comparisons_ratio - 1) * 100
+        time_pct = (time_ratio - 1) * 100
+        scored.append((
+            S, comparisons, t, comparisons_ratio, time_ratio,
+            comparisons_pct, time_pct, comparisons_ratio + time_ratio,
+        ))
+    best = min(scored, key=lambda r: r[7])
+    return best, scored
 
 
 def save_csv(filename, header, rows):
@@ -121,7 +150,10 @@ def save_csv(filename, header, rows):
 
 if __name__ == "__main__":
     S_VALUES = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1000, 2000]
-    D_S_CANDIDATES = [1, 3, 5, 7, 10, 13, 16, 20, 50]
+    # Shared candidate set for (c)-iii and the part-(d) balanced-S search,
+    # so comparison-optimal and time-optimal S are computed on the same
+    # candidates at the same n=10,000,000 baseline.
+    D_S_CANDIDATES = [1, 2, 4, 6, 8, 10, 13, 16, 20, 25, 30, 35, 40, 50]
 
     # Run the full experiment suite once per dataset type. Output CSV
     # filenames are suffixed with the label (e.g. "..._sorted.csv") so
@@ -147,15 +179,29 @@ if __name__ == "__main__":
         c3_results = experiment_c3(n_values=c3_n_values, S_values=S_VALUES)
         save_csv(f"c3_optimal_S_per_n_{label}.csv", ["n", "best_S", "min_comparisons"], c3_results)
 
-        print("Running CPU-time sweep at n=10,000,000 to find optimal S for (d)...")
-        time_sweep_results = experiment_time_sweep(n=10_000_000, S_values=D_S_CANDIDATES, repeats=3)
-        save_csv(f"time_sweep_10M_{label}.csv", ["S", "min_cpu_time_seconds"], time_sweep_results)
+        print("Running balanced-S sweep at n=10,000,000 (comparisons + CPU time)...")
+        balanced_results = experiment_balanced_S(n=10_000_000, S_values=D_S_CANDIDATES, repeats=3)
+        best, scored = pick_balanced_S(balanced_results)
+        save_csv(
+            f"balanced_S_sweep_10M_{label}.csv",
+            [
+                "S", "comparisons", "min_cpu_time_seconds",
+                "comparisons_ratio", "time_ratio",
+                "comparisons_pct_vs_best", "time_pct_vs_best",
+                "combined_score",
+            ],
+            scored,
+        )
 
-        optimal_S, optimal_time = min(time_sweep_results, key=lambda r: r[1])
-        print(f"Optimal S by CPU time [{label}]: S={optimal_S} (time={optimal_time:.3f}s)")
+        balanced_S = best[0]
+        print(
+            f"Balanced-optimal S [{label}]: S={balanced_S} "
+            f"({best[5]:+.2f}% comparisons vs fewest-comparisons S, "
+            f"{best[6]:+.2f}% time vs fastest S)"
+        )
 
         print("Running (d): hybrid vs merge sort on n=10,000,000...")
-        d_result = experiment_d(n=10_000_000, optimal_S=optimal_S)
+        d_result = experiment_d(n=10_000_000, optimal_S=balanced_S)
         d_rows = [
             ("hybrid", d_result["hybrid"][0], d_result["hybrid"][1]),
             ("merge", d_result["merge"][0], d_result["merge"][1]),
