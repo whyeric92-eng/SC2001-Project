@@ -1,9 +1,7 @@
-# SC2001 Project 1: Integration of Merge Sort & Insertion Sort
+# SC2001 – Algorithm Design and Analysis
 
-Course project for SC2001 (Algorithm Design and Analysis).
+Course labs / projects for SC2001.
 
-Implements a hybrid sorting algorithm that switches from Merge Sort to
-Insertion Sort once a subarray's size drops to or below a threshold `S`,
-then empirically studies the number of key comparisons and CPU time across
-different input sizes `n` and threshold values `S`, comparing against plain
-Merge Sort.
+| Folder | Description |
+| ------ | ----------- |
+| [Lab1](Lab1/) | Integration of Merge Sort & Insertion Sort |
