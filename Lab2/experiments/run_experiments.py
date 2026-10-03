@@ -6,15 +6,19 @@ import csv, time, sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "dijkstra"))
 sys.path.insert(0, os.path.dirname(__file__))
 
+import counter
 from dijkstra_matrix import dijkstra_matrix
 from dijkstra_heap import dijkstra_heap
+from dijkstra_matrix_count import dijkstra_matrix_count
+from dijkstra_heap_count import dijkstra_heap_count
 from generate_graph import generate_graph
 
 SEED = 42
 REPEATS = 3
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "results")
 
-HEADER = ["V", "E", "matrix_time", "heap_time"]
+HEADER = ["V", "E", "matrix_comparisons", "heap_comparisons",
+          "matrix_time", "heap_time"]
 
 
 def timing(algorithm, graph):
@@ -28,10 +32,26 @@ def timing(algorithm, graph):
     return time.perf_counter() - start
 
 
+def counting(algorithm, graph):
+    """Number of distance comparisons in one run of algorithm on graph,
+    from source 0. The same graph always gives the same count."""
+    counter.reset_counter()
+    algorithm(graph, 0)
+    return counter.comparisons
+
+
 def measure_graph(n, m):
-    """Generate one graph and time both implementations on it. Each is
-    run REPEATS times and the fastest run is kept, to reduce noise."""
+    """Generate one graph and measure both implementations on it.
+
+    Comparisons are counted with the _count versions. Time is measured
+    on the versions without counting, so the counting does not slow
+    them down. Each is timed REPEATS times and the fastest run is kept,
+    to reduce noise.
+    """
     matrix, adj = generate_graph(n, m, seed=SEED)
+
+    matrix_comparisons = counting(dijkstra_matrix_count, matrix)
+    heap_comparisons = counting(dijkstra_heap_count, adj)
 
     matrix_times = []
     heap_times = []
@@ -39,7 +59,8 @@ def measure_graph(n, m):
         matrix_times.append(timing(dijkstra_matrix, matrix))
         heap_times.append(timing(dijkstra_heap, adj))
 
-    return [n, m, min(matrix_times), min(heap_times)]
+    return [n, m, matrix_comparisons, heap_comparisons,
+            min(matrix_times), min(heap_times)]
 
 
 def experiment_fixed_v(n, m_values):
