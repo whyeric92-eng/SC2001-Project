@@ -30,12 +30,21 @@ the lecture, unlike the two-dimensional table of 0/1 knapsack.
 | `knapsack/knapsack_dp.py` | Parts (3) and (4): the bottom-up algorithm, and the runs of P(16) and P(12) |
 | `knapsack/subproblem_graph.py` | Part (2): finds the subproblem graph of P(15) and draws it |
 | `results/plots/subproblem_graph_P15.png` | The subproblem graph of P(15) drawn by the script above |
+| `knapsack/knapsack_topdown.py` | Top-down DP (recursion + dictionary), for comparison |
+| `knapsack/knapsack_recursive.py` | Plain recursion without a dictionary, for comparison |
+| `experiments/generate_items.py` | `n` random object types, weights and profits in 1 to 100 |
+| `experiments/run_experiments.py` | Runs the experiments and writes the CSVs to `results/` |
+| `experiments/plot_results.py` | Plots the CSVs against the theoretical curves into `results/plots/` |
 
 ## Running
 
 ```
 python knapsack/knapsack_dp.py          # prints the table P[0..C] for (4a) and (4b)
 python knapsack/subproblem_graph.py     # needs matplotlib
+python knapsack/knapsack_topdown.py     # each checks itself against
+python knapsack/knapsack_recursive.py   # the bottom-up DP on (4a) and (4b)
+python experiments/run_experiments.py   # about half a minute
+python experiments/plot_results.py      # needs matplotlib, numpy, pandas
 ```
 
 ## Results
@@ -56,3 +65,30 @@ compute them again each time, while the DP computes each one once.
 - Space: `Θ(C)` for the one-dimensional table.
 - This is pseudo-polynomial: polynomial in the value of `C`, but `C` takes
   only `log C` bits to write, so the time is exponential in the input size.
+- Top-down DP is also `O(nC)`, but only solves the subproblems reachable
+  from `C`.
+- Plain recursion is exponential in `C`: it makes
+  `T(C) = 1 + Σ T(C - w[i])` calls (over all `w[i] <= C`).
+
+## Experiments
+
+| Experiment | Objects | Versions | CSV |
+| ---------- | ------- | -------- | --- |
+| 1 | n = 10, C from 10,000 to 100,000 | bottom-up, top-down | `varying_c.csv` |
+| 2 | C = 10,000, n from 10 to 100 | bottom-up, top-down | `varying_n.csv` |
+| 3 | Objects of part (2), C from 0 to 80 | plain recursion, top-down, bottom-up | `recursive_vs_dp.csv` |
+
+Random objects use seed 42. Time is the fastest of 3 runs (50 runs for the
+DP in experiment 3, which takes only microseconds). Every run also checks
+that all versions give the same answer.
+
+## Findings
+
+- Both DP versions grow linearly in `C` and in `n`: the ratio of empirical
+  time to `c · nC` stays near 1, matching `Θ(nC)`.
+- Top-down is about 2 to 3 times slower than bottom-up, from the cost of
+  the recursive calls and the dictionary.
+- Plain recursion matches its exact number of calls `T(C)`, which grows by
+  about 1.22 times for each unit of `C`. At `C = 80` it makes 12,562,962
+  calls and takes about 2.7 s, while bottom-up solves 81 subproblems in
+  about 20 µs, over 100,000 times faster.
