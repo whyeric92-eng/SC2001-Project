@@ -1,8 +1,9 @@
-"""Plots theoretical vs empirical running times of the knapsack algorithms.
+"""Plots theoretical vs empirical results of the knapsack algorithms.
 
-Experiments 1 and 2 (bottom-up and top-down DP, theory: n * C):
+Experiments 1 and 2 (theory: n * C), for comparisons (bottom-up DP only)
+and time (bottom-up and top-down DP):
   * an overlay figure: empirical vs scaled theoretical, one panel per version
-  * a ratio figure: empirical / theoretical for both versions together
+  * a ratio figure: empirical / theoretical for all versions together
   * a CSV with the plotted numbers
 
 Experiment 3 (plain recursion vs DP, small C):
@@ -32,6 +33,12 @@ EXPERIMENTS = [
     ("varying_n.csv", "varying_n", "n", "Experiment 2: C = 10,000, varying n"),
 ]
 
+# (metric suffix in CSV, axis label, versions measured)
+METRICS = [
+    ("comparisons", "Number of comparisons", ["bottomup"]),
+    ("time", "Time (seconds)", ["bottomup", "topdown"]),
+]
+
 
 def dp_theory(df):
     return df["n"] * df["C"]
@@ -56,52 +63,55 @@ def process_experiment(csv_name, out_name, x_col, title):
     x = df[x_col]
     theory = dp_theory(df)
 
-    out = df[["C", "n"]].copy()
-    fig1, axes = plt.subplots(1, 2, figsize=(12, 4.5))
-    fig2, ax_ratio = plt.subplots(figsize=(7, 4.5))
+    for metric, ylabel, measured in METRICS:
+        algos = [a for a in ALGOS if a[1] in measured]
+        out = df[["C", "n"]].copy()
+        fig1, axes = plt.subplots(1, len(algos), figsize=(6 * len(algos), 4.5),
+                                  squeeze=False)
+        fig2, ax_ratio = plt.subplots(figsize=(7, 4.5))
 
-    for ax, (name, prefix, colour) in zip(axes, ALGOS):
-        empirical = df[f"{prefix}_time"]
-        c = fit_constant(empirical, theory)
-        scaled = c * theory
-        ratio = empirical / scaled
+        for ax, (name, prefix, colour) in zip(axes[0], algos):
+            empirical = df[f"{prefix}_{metric}"]
+            c = fit_constant(empirical, theory)
+            scaled = c * theory
+            ratio = empirical / scaled
 
-        out[f"{prefix}_empirical"] = empirical
-        out[f"{prefix}_theoretical_scaled"] = scaled
-        out[f"{prefix}_ratio"] = ratio
+            out[f"{prefix}_empirical"] = empirical
+            out[f"{prefix}_theoretical_scaled"] = scaled
+            out[f"{prefix}_ratio"] = ratio
 
-        # Overlay: empirical vs scaled theoretical
-        ax.plot(x, empirical, "o-", color=colour, label="Empirical")
-        ax.plot(x, scaled, "s--", color="black", alpha=0.7,
-                label=r"Theoretical: $c \cdot nC$")
-        ax.set_title(name)
-        ax.set_xlabel(x_col)
-        ax.set_ylabel("Time (seconds)")
-        ax.grid(alpha=0.3)
-        ax.legend()
+            # Overlay: empirical vs scaled theoretical
+            ax.plot(x, empirical, "o-", color=colour, label="Empirical")
+            ax.plot(x, scaled, "s--", color="black", alpha=0.7,
+                    label=r"Theoretical: $c \cdot nC$")
+            ax.set_title(name)
+            ax.set_xlabel(x_col)
+            ax.set_ylabel(ylabel)
+            ax.grid(alpha=0.3)
+            ax.legend()
 
-        # Ratio: both versions together
-        ax_ratio.plot(x, ratio, "o-", color=colour, label=name)
+            # Ratio: all versions together
+            ax_ratio.plot(x, ratio, "o-", color=colour, label=name)
 
-    fig1.suptitle(f"{title}\nEmpirical vs theoretical (time)")
-    fig1.tight_layout()
-    fig1.savefig(os.path.join(PLOT_DIR, f"{out_name}_time_overlay.png"), dpi=150)
-    plt.close(fig1)
+        fig1.suptitle(f"{title}\nEmpirical vs theoretical ({metric})")
+        fig1.tight_layout()
+        fig1.savefig(os.path.join(PLOT_DIR, f"{out_name}_{metric}_overlay.png"), dpi=150)
+        plt.close(fig1)
 
-    ax_ratio.axhline(1.0, color="gray", linestyle=":")
-    ax_ratio.set_ylim(0, 2)
-    ax_ratio.set_title(f"{title}\nEmpirical / theoretical (time)")
-    ax_ratio.set_xlabel(x_col)
-    ax_ratio.set_ylabel("empirical / (c * theoretical)")
-    ax_ratio.grid(alpha=0.3)
-    ax_ratio.legend()
-    fig2.tight_layout()
-    fig2.savefig(os.path.join(PLOT_DIR, f"{out_name}_time_ratio.png"), dpi=150)
-    plt.close(fig2)
+        ax_ratio.axhline(1.0, color="gray", linestyle=":")
+        ax_ratio.set_ylim(0, 2)
+        ax_ratio.set_title(f"{title}\nEmpirical / theoretical ({metric})")
+        ax_ratio.set_xlabel(x_col)
+        ax_ratio.set_ylabel("empirical / (c * theoretical)")
+        ax_ratio.grid(alpha=0.3)
+        ax_ratio.legend()
+        fig2.tight_layout()
+        fig2.savefig(os.path.join(PLOT_DIR, f"{out_name}_{metric}_ratio.png"), dpi=150)
+        plt.close(fig2)
 
-    out.to_csv(os.path.join(PLOT_DIR, f"{out_name}_time_plot_data.csv"),
-               index=False)
-    print(f"  saved {out_name}")
+        out.to_csv(os.path.join(PLOT_DIR, f"{out_name}_{metric}_plot_data.csv"),
+                   index=False)
+        print(f"  saved {out_name} / {metric}")
 
 
 def process_recursive_vs_dp():
@@ -141,7 +151,7 @@ def process_recursive_vs_dp():
     out["bottomup_empirical"] = df["bottomup_time"]
     out.to_csv(os.path.join(PLOT_DIR, "recursive_vs_dp_time_plot_data.csv"),
                index=False)
-    print("  saved recursive_vs_dp")
+    print("  saved recursive_vs_dp / time")
 
 
 if __name__ == "__main__":

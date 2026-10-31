@@ -1,12 +1,14 @@
-"""Times the knapsack algorithms for different C and n, and saves the
-results to CSV.
+"""Counts the comparisons of the bottom-up DP and times all the knapsack
+algorithms for different C and n, and saves the results to CSV.
 """
 import csv, time, sys, os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "knapsack"))
 sys.path.insert(0, os.path.dirname(__file__))
 
+import counter
 from knapsack_dp import knapsack_dp
+from knapsack_dp_count import knapsack_dp_count
 from knapsack_topdown import knapsack_topdown
 from knapsack_recursive import knapsack_recursive
 from generate_items import generate_items
@@ -36,8 +38,20 @@ def timing(algorithm, C, w, p, repeats=REPEATS):
     return best, answer
 
 
+def counting(algorithm, C, w, p):
+    """Number of profit comparisons in one run, and the answer.
+    The same input always gives the same count."""
+    counter.reset_counter()
+    answer = algorithm(C, w, p)
+    return counter.comparisons, answer
+
+
 def bottom_up(C, w, p):
     return knapsack_dp(C, w, p)[0][C]
+
+
+def bottom_up_count(C, w, p):
+    return knapsack_dp_count(C, w, p)[0][C]
 
 
 def save(name, header, rows):
@@ -49,19 +63,34 @@ def save(name, header, rows):
     print("  saved", os.path.normpath(path))
 
 
+DP_HEADER = ["C", "n", "bottomup_comparisons", "bottomup_time",
+             "topdown_time"]
+
+
+def measure_dp(C, w, p):
+    """Counts the comparisons of the bottom-up DP and times both DP
+    versions on one input, and checks they give the same answer.
+
+    Comparisons are counted with knapsack_dp_count. Time is measured on
+    knapsack_dp, without counting, so the counting does not slow it down.
+    """
+    k_bu, a1 = counting(bottom_up_count, C, w, p)
+    t_bu, a2 = timing(bottom_up, C, w, p)
+    t_td, a3 = timing(knapsack_topdown, C, w, p)
+    assert a1 == a2 == a3
+    return [C, len(w), k_bu, t_bu, t_td]
+
+
 def experiment_1():
     """Fixed n = 10, C from 10,000 to 100,000."""
     print("Experiment 1: n = 10, varying C")
-    n = 10
-    w, p = generate_items(n, seed=SEED)
+    w, p = generate_items(10, seed=SEED)
     rows = []
     for C in range(10_000, 100_001, 10_000):
-        t_bu, a = timing(bottom_up, C, w, p)
-        t_td, b = timing(knapsack_topdown, C, w, p)
-        assert a == b
-        rows.append([C, n, t_bu, t_td])
-        print(f"  C = {C:>6}: bottom-up {t_bu:.4f}s, top-down {t_td:.4f}s")
-    save("varying_c.csv", ["C", "n", "bottomup_time", "topdown_time"], rows)
+        rows.append(measure_dp(C, w, p))
+        print(f"  C = {C:>6}: bottom-up {rows[-1][2]} comparisons, "
+              f"{rows[-1][3]:.4f}s")
+    save("varying_c.csv", DP_HEADER, rows)
 
 
 def experiment_2():
@@ -72,12 +101,10 @@ def experiment_2():
     rows = []
     for n in range(10, 101, 10):
         w, p = generate_items(n, seed=SEED)
-        t_bu, a = timing(bottom_up, C, w, p)
-        t_td, b = timing(knapsack_topdown, C, w, p)
-        assert a == b
-        rows.append([C, n, t_bu, t_td])
-        print(f"  n = {n:>3}: bottom-up {t_bu:.4f}s, top-down {t_td:.4f}s")
-    save("varying_n.csv", ["C", "n", "bottomup_time", "topdown_time"], rows)
+        rows.append(measure_dp(C, w, p))
+        print(f"  n = {n:>3}: bottom-up {rows[-1][2]} comparisons, "
+              f"{rows[-1][3]:.4f}s")
+    save("varying_n.csv", DP_HEADER, rows)
 
 
 def recursive_calls(C, w):
@@ -90,8 +117,9 @@ def recursive_calls(C, w):
 
 
 def experiment_3():
-    """Objects of part (2), C from 0 to 80: plain recursion against both
-    DP versions. The recursion takes a few seconds at C = 80."""
+    """Objects of part (2), C from 0 to 80: time of the plain recursion
+    against both DP versions. The recursion takes a few seconds at
+    C = 80."""
     print("Experiment 3: objects of part (2), recursion vs DP")
     n = len(W2)
     rows = []
